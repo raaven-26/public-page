@@ -23,6 +23,19 @@
             <p>This is a modern, minimal boilerplate for your GitHub Pages project. Start building your site here!</p>
             <button id="helloBtn">Say Hello</button>
         </section>
+        <section id="notes">
+            <h2>My Notes</h2>
+            <div class="notes-container">
+                <div class="notes-input">
+                    <input type="text" id="noteTitle" placeholder="Note title..." maxlength="100">
+                    <textarea id="noteContent" placeholder="Write your note here..." maxlength="500"></textarea>
+                    <button id="addNoteBtn">Add Note</button>
+                </div>
+                <div id="notesList" class="notes-list">
+                    <!-- Notes will be rendered here -->
+                </div>
+            </div>
+        </section>
         <section id="about">
             <h2>About</h2>
             <p>Describe your project or yourself here.</p>
@@ -35,6 +48,8 @@
     <footer>
         <p>&copy; 2026 Your Name. Powered by GitHub Pages.</p>
     </footer>
+    <script src="assets/js/config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="assets/js/script.js"></script>
 </body>
 </html>
