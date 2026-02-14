@@ -23,36 +23,58 @@ class NotesManager {
             const { createClient } = window.supabase;
             this.supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
             
+            console.log('Initializing Supabase with URL:', supabaseConfig.url);
+            
             // Authenticate anonymously
             this.supabase.auth.signInAnonymously().then(({ data, error }) => {
                 if (error) {
                     console.error('Supabase auth error:', error);
+                    console.log('Error details:', error.message);
                     this.useCloud = false;
+                    this.renderNotes();
+                    return;
+                }
+                
+                if (!data || !data.session || !data.session.user) {
+                    console.error('No session data returned');
+                    this.useCloud = false;
+                    this.renderNotes();
                     return;
                 }
                 
                 this.userId = data.session.user.id;
                 this.supabaseReady = true;
-                console.log('Supabase connected - Cloud sync enabled');
+                console.log('✅ Supabase connected - Cloud sync enabled');
+                console.log('User ID:', this.userId);
                 
                 // Load notes from database
                 this.loadNotesFromCloud();
                 
                 // Listen for real-time changes
                 this.setupRealtimeListener();
+                
+                this.renderNotes();
             }).catch(error => {
                 console.error('Supabase initialization error:', error);
+                console.log('Full error:', error);
                 this.useCloud = false;
+                this.renderNotes();
             });
         } catch (error) {
             console.error('Supabase setup error:', error);
+            console.log('Full error:', error);
             this.useCloud = false;
         }
     }
 
     // Load notes from Supabase
     loadNotesFromCloud() {
-        if (!this.supabaseReady) return;
+        if (!this.supabaseReady) {
+            console.warn('Supabase not ready, skipping cloud load');
+            return;
+        }
+        
+        console.log('Loading notes from cloud...');
         
         this.supabase
             .from('notes')
@@ -61,9 +83,12 @@ class NotesManager {
             .order('created_at', { ascending: false })
             .then(({ data, error }) => {
                 if (error) {
-                    console.error('Error loading notes:', error);
+                    console.error('Error loading notes from cloud:', error);
+                    console.error('Error details:', error.message, error.details);
                     return;
                 }
+                
+                console.log('Notes loaded from cloud:', data);
                 
                 if (data && data.length > 0) {
                     this.notes = data.map(note => ({
@@ -74,7 +99,12 @@ class NotesManager {
                     }));
                     this.saveLocalNotes();
                     this.renderNotes();
+                } else {
+                    console.log('No notes in cloud database');
                 }
+            })
+            .catch(error => {
+                console.error('Exception loading notes:', error);
             });
     }
 
@@ -111,10 +141,25 @@ class NotesManager {
 
     // Save notes to Supabase
     async saveToCloud(note) {
-        if (!this.supabaseReady) return;
+        if (!this.supabaseReady) {
+            console.warn('Supabase not ready, skipping cloud save');
+            return;
+        }
+        
+        if (!this.userId) {
+            console.warn('No userId set, skipping cloud save');
+            return;
+        }
         
         try {
-            const { error } = await this.supabase
+            console.log('Attempting to save to cloud:', {
+                id: note.id,
+                title: note.title,
+                content: note.content,
+                user_id: this.userId
+            });
+            
+            const { data, error } = await this.supabase
                 .from('notes')
                 .insert([{
                     id: note.id,
@@ -125,10 +170,14 @@ class NotesManager {
                 }]);
             
             if (error) {
-                console.error('Error saving to cloud:', error);
+                console.error('❌ Error saving to cloud:', error);
+                console.error('Error details:', error.message, error.details);
+            } else {
+                console.log('✅ Note saved to cloud successfully:', data);
             }
         } catch (error) {
-            console.error('Error saving to cloud:', error);
+            console.error('Exception saving to cloud:', error);
+            console.error('Full error:', error);
         }
     }
 
@@ -158,6 +207,8 @@ class NotesManager {
             return;
         }
 
+        console.log('Adding note - supabaseReady:', this.supabaseReady, 'userId:', this.userId);
+
         const note = {
             id: Date.now().toString(),
             title: title.trim(),
@@ -170,7 +221,10 @@ class NotesManager {
         
         // Save to cloud if available
         if (this.useCloud && this.supabaseReady) {
+            console.log('Saving to cloud...');
             this.saveToCloud(note);
+        } else {
+            console.log('Cloud sync disabled or not ready. Saved to local only.');
         }
         
         this.renderNotes();
@@ -208,7 +262,7 @@ class NotesManager {
             if (this.supabaseReady) {
                 statusHTML = '<div style="text-align:center; color:#14b8a6; font-size:0.9rem; margin-bottom:1rem;">☁️ Cloud sync enabled - Data synced across devices</div>';
             } else {
-                statusHTML = '<div style="text-align:center; color:#f59e0b; font-size:0.9rem; margin-bottom:1rem;">⚠️ Connecting to cloud...</div>';
+                statusHTML = '<div style="text-align:center; color:#f59e0b; font-size:0.9rem; margin-bottom:1rem;">⚠️ Connecting to cloud... (Check console for errors)</div>';
             }
         } else {
             statusHTML = '<div style="text-align:center; color:#6b7280; font-size:0.9rem; margin-bottom:1rem;">📱 Local storage only (Configure Supabase for cloud sync)</div>';
